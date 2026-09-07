@@ -1,7 +1,7 @@
 data "aws_caller_identity" "current" {}
 
 resource "aws_secretsmanager_secret" "cognito_auth_configuration" {
-  name        = var.cognito_config_lambda
+  name        = "cognito_auth_configuration-deivi-motors-2"
   description = "Configurações Cognito para Lambda"
 }
 
