@@ -87,8 +87,6 @@ resource "aws_lambda_function" "deivi-motors-authentication" {
 
 
   role          = aws_iam_role.lambda_exec_role.arn
-  # Role já existente no AWS Academy (não cria nova role)
-  # role = "arn:aws:iam::891377152273:role/LabRole"
 
   environment {
     variables = {

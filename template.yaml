@@ -24,7 +24,7 @@ Resources:
       Role: arn:aws:iam::<numeroConta>:role/LabRole
       Environment: # More info about Env Vars: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#environment-object
         Variables:
-          SECRET_NAME: cognito_auth_configuration
+          SECRET_NAME: cognito_auth_configuration-deivi-motors
       Events:
         HelloWorld:
           Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
