@@ -205,7 +205,7 @@ public class App implements RequestHandler<APIGatewayProxyRequestEvent, APIGatew
     }
 
     // GET /customers/{cpf}
-    private APIGatewayProxyResponseEvent getUserByCpf(String cpf,Context context) {
+    private APIGatewayProxyResponseEvent getUserByCpf(String cpf, Context context) {
 
         if (cpf == null || cpf.isBlank()) {
             return response(400, Map.of("error", "CPF obrigatorio"));
@@ -220,34 +220,48 @@ public class App implements RequestHandler<APIGatewayProxyRequestEvent, APIGatew
 
         log(context, "Consultando usuario no Cognito. CPF: " + cpfSemMascara);
 
-        ListUsersResponse usersResponse = cognitoClient.listUsers(
-                ListUsersRequest.builder()
-                        .userPoolId(USER_POOL_ID)
-                        .filter("custom:cpf = \"" + cpfSemMascara + "\"")
-                        .limit(1)
-                        .build()
-        );
+        try {
 
-        if (usersResponse.users().isEmpty()) {
+            AdminGetUserResponse userResponse = cognitoClient.adminGetUser(
+                    AdminGetUserRequest.builder()
+                            .userPoolId(USER_POOL_ID)
+                            .username(cpfSemMascara)
+                            .build()
+            );
+
+            String cpfUsuario = getAttributeGetCustomer(userResponse, "custom:cpf");
+            String email = getAttributeGetCustomer(userResponse, "email");
+            String completeName = getAttributeGetCustomer(userResponse, "name");
+
+            log(context, "Usuario consultado com sucesso. CPF: " + cpfUsuario);
+
+            Map<String, Object> responseBody = new HashMap<>();
+            responseBody.put("cpf", cpfUsuario);
+            responseBody.put("email", email);
+            responseBody.put("nomeCompleto", completeName);
+
+            return response(200, responseBody);
+
+        } catch (UserNotFoundException e) {
+
             log(context, "Usuario nao encontrado. CPF: " + cpfSemMascara);
-            return response(404, Map.of("error", "Usuario nao encontrado"));
+
+            return response(
+                    404,
+                    Map.of("error", "Usuario nao encontrado")
+            );
         }
-
-        UserType user = usersResponse.users().get(0);
-
-        String cpfUsuario = getAttribute(user, "custom:cpf");
-        String email = getAttribute(user, "email");
-        String completeName = getAttribute(user, "name");
-
-        log(context, "Usuario consultado com sucesso. CPF: " + cpfUsuario);
-
-        Map<String, Object> responseBody = new HashMap<>();
-        responseBody.put("cpf", cpfUsuario);
-        responseBody.put("email", email);
-        responseBody.put("nomeCompleto", completeName);
-
-        return response(200, responseBody);
     }
+
+    private String getAttributeGetCustomer(AdminGetUserResponse user,String attributeName
+    ) {
+        return user.userAttributes().stream()
+                .filter(attribute -> attribute.name().equals(attributeName))
+                .map(AttributeType::value)
+                .findFirst()
+                .orElse(null);
+    }
+
 
     private String getAttribute(UserType user, String attributeName) {
         return user.attributes().stream()
