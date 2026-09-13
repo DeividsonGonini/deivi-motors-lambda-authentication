@@ -37,56 +37,96 @@ public class App implements RequestHandler<APIGatewayProxyRequestEvent, APIGatew
     @Override
     public APIGatewayProxyResponseEvent handleRequest(APIGatewayProxyRequestEvent request, Context context) {
         try {
+            log(context, "========== NOVA REQUISICAO ==========");
+            log(context, "HTTP Method: " + request.getHttpMethod());
+            log(context, "Path recebido pelo API Gateway: " + request.getPath());
+            log(context, "Resource recebido pelo API Gateway: " + request.getResource());
+            log(context, "Path Parameters: " + request.getPathParameters());
+
             loadSecrets();
 
-            String path = request.getPath();
             String method = request.getHttpMethod();
+            String path = request.getPath();
+            String resource = request.getResource();
 
-            // POST /user
-            if ("POST".equalsIgnoreCase(method) && "/customers".equals(path)) {
-                return createUser(request);
+            // POST /customers
+            if ("POST".equalsIgnoreCase(method)
+                    && ("/customers".equals(resource) || "/customers".equals(path))) {
+
+                log(context, "Endpoint interno chamado: createUser()");
+                return createUser(request, context);
             }
 
-            // GET /user/{cpf}
-            if ("GET".equalsIgnoreCase(method) && path.startsWith("/customers/")) {
-                String cpf = path.substring("/customers/".length());
-                return getUserByCpf(cpf);
+            // GET /customers/{cpf}
+            if ("GET".equalsIgnoreCase(method)
+                    && ("/customers/{cpf}".equals(resource) || path.startsWith("/customers/"))) {
+
+                String cpf = null;
+
+                if (request.getPathParameters() != null) {
+                    cpf = request.getPathParameters().get("cpf");
+                }
+
+                if (cpf == null && path.startsWith("/customers/")) {
+                    cpf = path.substring("/customers/".length());
+                }
+
+                log(context, "Endpoint interno chamado: getUserByCpf()");
+                log(context, "CPF recebido para consulta: " + cpf);
+
+                return getUserByCpf(cpf, context);
             }
 
-            // POST /authentication
-            if ("POST".equalsIgnoreCase(method) && "/authentications".equals(path)) {
-                return authenticate(request);
+            // POST /authentications
+            if ("POST".equalsIgnoreCase(method)
+                    && ("/authentications".equals(resource) || "/authentications".equals(path))) {
+
+                log(context, "Endpoint interno chamado: authenticate()");
+                return authenticate(request, context);
             }
+
+            log(context, "Endpoint nao encontrado.");
+            log(context, "Method: " + method);
+            log(context, "Path: " + path);
+            log(context, "Resource: " + resource);
 
             return response(404, Map.of("error", "Endpoint não encontrado"));
 
         } catch (NotAuthorizedException e) {
+            log(context, "Falha de autenticacao: credenciais invalidas");
             return response(401, Map.of("error", "Credenciais invalidas"));
 
         } catch (InvalidPasswordException e) {
-            return response(400, Map.of("error", "Senha nao atende politica de seguranca do Cognito"));
+            log(context, "Senha rejeitada pela politica do Cognito");
+            return response(400, Map.of(
+                    "error",
+                    "Senha nao atende politica de seguranca do Cognito"
+            ));
 
         } catch (UsernameExistsException e) {
+            log(context, "Tentativa de cadastro de usuario ja existente");
             return response(409, Map.of("error", "Usuario ja cadastrado"));
 
         } catch (Exception e) {
+            log(context, "Erro interno: " + e.getMessage());
             return response(500, Map.of("error", e.getMessage()));
         }
     }
 
-    // ============================================================
-    // POST /user
-    // ============================================================
-
-    private APIGatewayProxyResponseEvent createUser(APIGatewayProxyRequestEvent request) throws Exception {
+    // POST /customers
+    private APIGatewayProxyResponseEvent createUser(
+            APIGatewayProxyRequestEvent request,
+            Context context
+    ) throws Exception {
 
         if (request.getBody() == null || request.getBody().isBlank()) {
             return response(400, Map.of("error", "Body obrigatorio"));
         }
 
         Map<String, String> body = objectMapper.readValue(
-                request.getBody(), new TypeReference<Map<String, String>>() {
-                });
+                request.getBody(),
+                new TypeReference<Map<String, String>>() {}
+        );
 
         String email = body.get("email");
         String password = body.get("password");
@@ -115,20 +155,26 @@ public class App implements RequestHandler<APIGatewayProxyRequestEvent, APIGatew
             return response(400, Map.of("error", "CPF invalido"));
         }
 
+        log(context, "Iniciando cadastro de usuario. CPF: " + cpfSemMascara);
+
         try {
             cognitoClient.adminGetUser(AdminGetUserRequest.builder()
                     .userPoolId(USER_POOL_ID)
-                    .username(cpf)
+                    .username(cpfSemMascara)
                     .build());
+
+            log(context, "Usuario ja cadastrado. CPF: " + cpfSemMascara);
 
             return response(409, Map.of("error", "Usuario ja cadastrado"));
 
         } catch (UserNotFoundException ignored) {
+            log(context, "Usuario nao encontrado no Cognito. Prosseguindo com cadastro. CPF: "
+                    + cpfSemMascara);
         }
 
         AdminCreateUserRequest createUserRequest = AdminCreateUserRequest.builder()
                 .userPoolId(USER_POOL_ID)
-                .username(cpf)
+                .username(cpfSemMascara)
                 .userAttributes(List.of(
                         AttributeType.builder().name("email").value(email).build(),
                         AttributeType.builder().name("email_verified").value("true").build(),
@@ -142,10 +188,12 @@ public class App implements RequestHandler<APIGatewayProxyRequestEvent, APIGatew
 
         cognitoClient.adminSetUserPassword(AdminSetUserPasswordRequest.builder()
                 .userPoolId(USER_POOL_ID)
-                .username(cpf)
+                .username(cpfSemMascara)
                 .password(password)
                 .permanent(true)
                 .build());
+
+        log(context, "Usuario cadastrado com sucesso. CPF: " + cpfSemMascara);
 
         Map<String, Object> responseBody = new HashMap<>();
         responseBody.put("message", "Usuario cadastrado com sucesso");
@@ -156,11 +204,8 @@ public class App implements RequestHandler<APIGatewayProxyRequestEvent, APIGatew
         return response(201, responseBody);
     }
 
-    // ============================================================
-    // GET /user/{cpf}
-    // ============================================================
-
-    private APIGatewayProxyResponseEvent getUserByCpf(String cpf) {
+    // GET /customers/{cpf}
+    private APIGatewayProxyResponseEvent getUserByCpf(String cpf,Context context) {
 
         if (cpf == null || cpf.isBlank()) {
             return response(400, Map.of("error", "CPF obrigatorio"));
@@ -169,8 +214,11 @@ public class App implements RequestHandler<APIGatewayProxyRequestEvent, APIGatew
         String cpfSemMascara = cpf.replaceAll("\\D", "");
 
         if (cpfSemMascara.length() != 11) {
+            log(context, "CPF invalido para consulta: " + cpf);
             return response(400, Map.of("error", "CPF invalido"));
         }
+
+        log(context, "Consultando usuario no Cognito. CPF: " + cpfSemMascara);
 
         ListUsersResponse usersResponse = cognitoClient.listUsers(
                 ListUsersRequest.builder()
@@ -181,19 +229,22 @@ public class App implements RequestHandler<APIGatewayProxyRequestEvent, APIGatew
         );
 
         if (usersResponse.users().isEmpty()) {
+            log(context, "Usuario nao encontrado. CPF: " + cpfSemMascara);
             return response(404, Map.of("error", "Usuario nao encontrado"));
         }
 
         UserType user = usersResponse.users().get(0);
 
+        String cpfUsuario = getAttribute(user, "custom:cpf");
         String email = getAttribute(user, "email");
         String completeName = getAttribute(user, "name");
-        String cpfUsuario = getAttribute(user, "custom:cpf");
+
+        log(context, "Usuario consultado com sucesso. CPF: " + cpfUsuario);
 
         Map<String, Object> responseBody = new HashMap<>();
         responseBody.put("cpf", cpfUsuario);
         responseBody.put("email", email);
-        responseBody.put("completeName", completeName);
+        responseBody.put("nomeCompleto", completeName);
 
         return response(200, responseBody);
     }
@@ -206,21 +257,22 @@ public class App implements RequestHandler<APIGatewayProxyRequestEvent, APIGatew
                 .orElse(null);
     }
 
-    // ============================================================
-    // POST /authentication
-    // ============================================================
-
-    private APIGatewayProxyResponseEvent authenticate(APIGatewayProxyRequestEvent request) throws Exception {
+    // POST /authentications
+    private APIGatewayProxyResponseEvent authenticate(
+            APIGatewayProxyRequestEvent request,
+            Context context
+    ) throws Exception {
 
         if (request.getBody() == null || request.getBody().isBlank()) {
             return response(400, Map.of("error", "Body obrigatorio"));
         }
 
         Map<String, String> body = objectMapper.readValue(
-                request.getBody(), new TypeReference<Map<String, String>>() {
-                });
+                request.getBody(),
+                new TypeReference<Map<String, String>>() {}
+        );
 
-        String cpf = body.get("custom:cpf");
+        String cpf = body.get("cpf");
         String password = body.get("password");
 
         if (cpf == null || cpf.isBlank()) {
@@ -231,13 +283,24 @@ public class App implements RequestHandler<APIGatewayProxyRequestEvent, APIGatew
             return response(400, Map.of("error", "Senha obrigatoria"));
         }
 
+        String cpfSemMascara = cpf.replaceAll("\\D", "");
+
+        if (cpfSemMascara.length() != 11) {
+            return response(400, Map.of("error", "CPF invalido"));
+        }
+
+        log(context, "Iniciando autenticacao do usuario. CPF: " + cpfSemMascara);
+
         try {
             cognitoClient.adminGetUser(AdminGetUserRequest.builder()
                     .userPoolId(USER_POOL_ID)
-                    .username(cpf)
+                    .username(cpfSemMascara)
                     .build());
 
         } catch (UserNotFoundException e) {
+            log(context, "Usuario nao encontrado durante autenticacao. CPF: "
+                    + cpfSemMascara);
+
             return response(401, Map.of("error", "Credenciais invalidas"));
         }
 
@@ -245,10 +308,15 @@ public class App implements RequestHandler<APIGatewayProxyRequestEvent, APIGatew
                 InitiateAuthRequest.builder()
                         .authFlow(AuthFlowType.USER_PASSWORD_AUTH)
                         .clientId(CLIENT_ID)
-                        .authParameters(Map.of("USERNAME", cpf, "PASSWORD", password))
+                        .authParameters(Map.of(
+                                "USERNAME", cpfSemMascara,
+                                "PASSWORD", password
+                        ))
                         .build());
 
         AuthenticationResultType authResult = authResponse.authenticationResult();
+
+        log(context, "Usuario autenticado com sucesso. CPF: " + cpfSemMascara);
 
         Map<String, String> authentication = new HashMap<>();
         authentication.put("TokenType", authResult.tokenType());
@@ -263,11 +331,9 @@ public class App implements RequestHandler<APIGatewayProxyRequestEvent, APIGatew
         return response(200, responseBody);
     }
 
-    // ============================================================
     // Secrets Manager
-    // ============================================================
-
     private void loadSecrets() throws Exception {
+
         String secretName = System.getenv("SECRET_NAME");
 
         if (secretName == null || secretName.isBlank()) {
@@ -282,12 +348,13 @@ public class App implements RequestHandler<APIGatewayProxyRequestEvent, APIGatew
                 .secretId(secretName)
                 .build();
 
-        GetSecretValueResponse secretResponse = secretsClient.getSecretValue(request);
+        GetSecretValueResponse secretResponse =
+                secretsClient.getSecretValue(request);
 
         Map<String, String> secrets = objectMapper.readValue(
                 secretResponse.secretString(),
-                new TypeReference<Map<String, String>>() {
-                });
+                new TypeReference<Map<String, String>>() {}
+        );
 
         USER_POOL_ID = secrets.get("USER_POOL_ID");
         CLIENT_ID = secrets.get("CLIENT_ID");
@@ -299,13 +366,22 @@ public class App implements RequestHandler<APIGatewayProxyRequestEvent, APIGatew
         if (CLIENT_ID == null || CLIENT_ID.isBlank()) {
             throw new RuntimeException("CLIENT_ID not found in secret");
         }
+
+        log(null, "Secrets carregados com sucesso.");
     }
 
-    // ============================================================
-    // Response
-    // ============================================================
+    // Logs
+    private void log(Context context, String message) {
+        if (context != null) {
+            context.getLogger().log("[AUTHENTICATION-LAMBDA] " + message + "\n");
+        } else {
+            System.out.println("[AUTHENTICATION-LAMBDA] " + message);
+        }
+    }
 
-    private APIGatewayProxyResponseEvent response(int status, Map<String, Object> body) {
+    // Response
+    private APIGatewayProxyResponseEvent response(int status,Map<String, Object> body) {
+
         try {
             return new APIGatewayProxyResponseEvent()
                     .withStatusCode(status)
