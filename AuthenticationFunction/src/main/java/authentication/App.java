@@ -49,10 +49,7 @@ public class App implements RequestHandler<APIGatewayProxyRequestEvent, APIGatew
             String path = request.getPath();
             String resource = request.getResource();
 
-            // ========================================================
             // POST /customers
-            // ========================================================
-
             if ("POST".equalsIgnoreCase(method)
                     && ("/customers".equals(resource) || "/customers".equals(path))) {
 
@@ -60,10 +57,7 @@ public class App implements RequestHandler<APIGatewayProxyRequestEvent, APIGatew
                 return createUser(request, context);
             }
 
-            // ========================================================
             // GET /customers/{cpf}
-            // ========================================================
-
             if ("GET".equalsIgnoreCase(method)
                     && ("/customers/{cpf}".equals(resource) || path.startsWith("/customers/"))) {
 
@@ -83,10 +77,7 @@ public class App implements RequestHandler<APIGatewayProxyRequestEvent, APIGatew
                 return getUserByCpf(cpf, context);
             }
 
-            // ========================================================
             // POST /authentications
-            // ========================================================
-
             if ("POST".equalsIgnoreCase(method)
                     && ("/authentications".equals(resource) || "/authentications".equals(path))) {
 
@@ -122,10 +113,7 @@ public class App implements RequestHandler<APIGatewayProxyRequestEvent, APIGatew
         }
     }
 
-    // ============================================================
     // POST /customers
-    // ============================================================
-
     private APIGatewayProxyResponseEvent createUser(
             APIGatewayProxyRequestEvent request,
             Context context
@@ -216,10 +204,7 @@ public class App implements RequestHandler<APIGatewayProxyRequestEvent, APIGatew
         return response(201, responseBody);
     }
 
-    // ============================================================
     // GET /customers/{cpf}
-    // ============================================================
-
     private APIGatewayProxyResponseEvent getUserByCpf(
             String cpf,
             Context context
@@ -275,10 +260,7 @@ public class App implements RequestHandler<APIGatewayProxyRequestEvent, APIGatew
                 .orElse(null);
     }
 
-    // ============================================================
     // POST /authentications
-    // ============================================================
-
     private APIGatewayProxyResponseEvent authenticate(
             APIGatewayProxyRequestEvent request,
             Context context
@@ -352,10 +334,7 @@ public class App implements RequestHandler<APIGatewayProxyRequestEvent, APIGatew
         return response(200, responseBody);
     }
 
-    // ============================================================
     // Secrets Manager
-    // ============================================================
-
     private void loadSecrets() throws Exception {
 
         String secretName = System.getenv("SECRET_NAME");
@@ -394,10 +373,7 @@ public class App implements RequestHandler<APIGatewayProxyRequestEvent, APIGatew
         log(null, "Secrets carregados com sucesso.");
     }
 
-    // ============================================================
     // Logs
-    // ============================================================
-
     private void log(Context context, String message) {
         if (context != null) {
             context.getLogger().log("[AUTHENTICATION-LAMBDA] " + message + "\n");
@@ -406,10 +382,7 @@ public class App implements RequestHandler<APIGatewayProxyRequestEvent, APIGatew
         }
     }
 
-    // ============================================================
     // Response
-    // ============================================================
-
     private APIGatewayProxyResponseEvent response(
             int status,
             Map<String, Object> body
