@@ -43,18 +43,18 @@ public class App implements RequestHandler<APIGatewayProxyRequestEvent, APIGatew
             String method = request.getHttpMethod();
 
             // POST /user
-            if ("POST".equalsIgnoreCase(method) && "/user".equals(path)) {
+            if ("POST".equalsIgnoreCase(method) && "/customers".equals(path)) {
                 return createUser(request);
             }
 
             // GET /user/{cpf}
-            if ("GET".equalsIgnoreCase(method) && path.startsWith("/user/")) {
-                String cpf = path.substring("/user/".length());
+            if ("GET".equalsIgnoreCase(method) && path.startsWith("/customers/")) {
+                String cpf = path.substring("/customers/".length());
                 return getUserByCpf(cpf);
             }
 
             // POST /authentication
-            if ("POST".equalsIgnoreCase(method) && "/authentication".equals(path)) {
+            if ("POST".equalsIgnoreCase(method) && "/authentications".equals(path)) {
                 return authenticate(request);
             }
 
