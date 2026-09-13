@@ -205,10 +205,7 @@ public class App implements RequestHandler<APIGatewayProxyRequestEvent, APIGatew
     }
 
     // GET /customers/{cpf}
-    private APIGatewayProxyResponseEvent getUserByCpf(
-            String cpf,
-            Context context
-    ) {
+    private APIGatewayProxyResponseEvent getUserByCpf(String cpf,Context context) {
 
         if (cpf == null || cpf.isBlank()) {
             return response(400, Map.of("error", "CPF obrigatorio"));
@@ -383,10 +380,7 @@ public class App implements RequestHandler<APIGatewayProxyRequestEvent, APIGatew
     }
 
     // Response
-    private APIGatewayProxyResponseEvent response(
-            int status,
-            Map<String, Object> body
-    ) {
+    private APIGatewayProxyResponseEvent response(int status,Map<String, Object> body) {
 
         try {
             return new APIGatewayProxyResponseEvent()
