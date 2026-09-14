@@ -23,6 +23,11 @@ Também retorna erros de validação (`400`) e credenciais inválidas (`401`).
 - Mockito
 - Maven
 
+# SonarCloud Code Coverage
+
+Deivi Motors Service
+[Coverage](https://sonarcloud.io/project/overview?id=deivi-motors-lambda-auth)
+
 ## Configuração esperada
 
 A função lê a variável de ambiente `SECRET_NAME` e busca no Secrets Manager um JSON com:
