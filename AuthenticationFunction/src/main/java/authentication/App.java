@@ -238,7 +238,7 @@ public class App implements RequestHandler<APIGatewayProxyRequestEvent, APIGatew
             Map<String, Object> responseBody = new HashMap<>();
             responseBody.put("cpf", cpfUsuario);
             responseBody.put("email", email);
-            responseBody.put("nomeCompleto", completeName);
+            responseBody.put("completeName", completeName);
 
             return response(200, responseBody);
 
