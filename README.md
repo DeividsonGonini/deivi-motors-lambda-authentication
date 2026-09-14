@@ -24,8 +24,6 @@ Também retorna erros de validação (`400`) e credenciais inválidas (`401`).
 - Maven
 
 # SonarCloud Code Coverage
-
-Deivi Motors Service
 [Coverage](https://sonarcloud.io/project/overview?id=deivi-motors-lambda-auth)
 
 ## Configuração esperada
